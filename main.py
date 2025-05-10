@@ -26,8 +26,8 @@ def setup():
     grid_size = calculate_grid_size()
     grid = [[GridPoint() for _ in range(grid_size[1])] for _ in range(grid_size[0])]
 
-    origin = np.zeros(2)
-    target = np.zeros(2)
+    origin = np.array([-1, -1])
+    target = np.array([-1, -1])
 
     reached_target = False
 
@@ -146,7 +146,7 @@ while not ray.window_should_close():
     
     if ray.is_mouse_button_pressed(ray.MouseButton.MOUSE_BUTTON_LEFT):
         grid_pos = screen_to_grid(np.array([ray.get_mouse_x(), ray.get_mouse_y()]))
-        if np.all(origin == 0):
+        if np.all(origin == -1):
             origin = grid_pos
 
             grid[grid_pos[0]][grid_pos[1]] = GridPoint(GridPointType.ORIGIN)
@@ -154,12 +154,12 @@ while not ray.window_should_close():
             closest_point.distance_to_origin = 0
 
             closest_point_pos = np.array([grid_pos[0], grid_pos[1]])
-        elif np.all(target == 0):
+        elif np.all(target == -1):
             target = grid_pos
             grid[grid_pos[0]][grid_pos[1]] = GridPoint(GridPointType.TARGET)
         
     if ray.is_key_pressed(ray.KeyboardKey.KEY_SPACE):
-        if not reached_target:
+        if np.all(target != -1) and not reached_target:
             step()
 
     if ray.is_key_pressed(ray.KeyboardKey.KEY_R):

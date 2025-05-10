@@ -9,7 +9,6 @@ class GridPointType(Enum):
     ORIGIN = 2
     TARGET = 3
     CHECKED = 4
-    PATH = 5
 
 class GridPoint:
     type: GridPointType
@@ -52,18 +51,36 @@ def get_point_neighbors(point):
     
     return points
 
-def step():
-    global reached_target, closest_point, closest_point_pos
-    points = get_point_neighbors(closest_point_pos)
+def calculate_path():
+    path_points.clear()
     
-    closest_point_replaced_in_loop = False
+    neighbors = get_point_neighbors(origin)
+    for pos in neighbors:
+        point = pos
+
+def step():
+    global reached_target, closest_point_pos
+    
+    closest_point = None
+    for pos in potential_path_point_pos:
+        point = grid[pos[0]][pos[1]]
+
+        if ((closest_point == None) or 
+           (closest_point.cost >= point.cost and 
+            closest_point.distance_to_target > point.distance_to_target)):
+            closest_point = point
+            closest_point_pos = pos
+    
+    points = get_point_neighbors(closest_point_pos)
+
+    added_new_points = False
     for point_pos in points:
         point = grid[point_pos[0]][point_pos[1]]
         if point.type == GridPointType.TARGET:
             reached_target = True
             break
 
-        if point.type != GridPointType.DEFAULT:
+        if point.type != GridPointType.DEFAULT or point.type == GridPointType.SOLID:
             continue
         
         point.distance_to_origin = grid[closest_point_pos[0]][closest_point_pos[1]].distance_to_origin + 1
@@ -72,18 +89,12 @@ def step():
 
         if point.type == GridPointType.DEFAULT:
             point.type = GridPointType.CHECKED
+            potential_path_point_pos.add(tuple(point_pos))
+            added_new_points = True
+    
+    if not added_new_points:
+        potential_path_point_pos.remove(tuple(closest_point_pos))
 
-        if closest_point.cost >= point.cost:
-            if closest_point.distance_to_target > point.distance_to_target:
-                if closest_point_replaced_in_loop:
-                    closest_point.type = GridPointType.CHECKED
-                if point.type == GridPointType.CHECKED:
-                    point.type = GridPointType.PATH
-                closest_point = point
-                closest_point_pos = point_pos
-
-                closest_point_replaced_in_loop = True
-        
 
 def display_text(value, text_pos):
     if value == np.inf:
@@ -103,14 +114,16 @@ def draw_grid():
             match point.type:
                 case GridPointType.DEFAULT:
                     color = Color(150, 150, 150, 255)
+                case GridPointType.SOLID:
+                    color = Color(0, 0, 0, 255)
                 case GridPointType.ORIGIN:
                     color = Color(150, 255, 150, 255)
                 case GridPointType.TARGET:
                     color = Color(255, 150, 150, 255)
                 case GridPointType.CHECKED:
                     color = Color(255, 150, 255, 255)
-                case GridPointType.PATH:
-                    color = Color(255, 255, 150, 255)
+                #case GridPointType.PATH:
+                #    color = Color(255, 255, 150, 255)
 
             ray.draw_circle(circle_position[0], circle_position[1], circle_radius, color)
 
@@ -127,10 +140,12 @@ circle_spacing = (circle_radius * 2) + grid_padding
 grid_size = np.zeros(2)
 grid = [[]]
 
+path_points = []
+closest_point_pos = None
+potential_path_point_pos = set()
+
 origin = np.zeros(2)
 target = np.zeros(2)
-closest_point_pos = np.zeros(2)
-closest_point = GridPoint()
 
 reached_target = False
 
@@ -146,14 +161,19 @@ while not ray.window_should_close():
     
     if ray.is_mouse_button_pressed(ray.MouseButton.MOUSE_BUTTON_LEFT):
         grid_pos = screen_to_grid(np.array([ray.get_mouse_x(), ray.get_mouse_y()]))
+        point = grid[grid_pos[0]][grid_pos[1]]
+        
+        if point.type == GridPointType.DEFAULT:
+            point.type = GridPointType.SOLID
+        elif point.type == GridPointType.SOLID:
+            point.type = GridPointType.DEFAULT
+
+    if ray.is_mouse_button_pressed(ray.MouseButton.MOUSE_BUTTON_RIGHT):
+        grid_pos = screen_to_grid(np.array([ray.get_mouse_x(), ray.get_mouse_y()]))
         if np.all(origin == -1):
             origin = grid_pos
-
             grid[grid_pos[0]][grid_pos[1]] = GridPoint(GridPointType.ORIGIN)
-            closest_point = grid[grid_pos[0]][grid_pos[1]]
-            closest_point.distance_to_origin = 0
-
-            closest_point_pos = np.array([grid_pos[0], grid_pos[1]])
+            potential_path_point_pos.add(tuple(grid_pos))
         elif np.all(target == -1):
             target = grid_pos
             grid[grid_pos[0]][grid_pos[1]] = GridPoint(GridPointType.TARGET)
